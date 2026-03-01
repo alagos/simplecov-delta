@@ -1,0 +1,16 @@
+{
+  "minitest-1": {
+    "coverage": {
+      "/home/runner/work/myapp/myapp/app/models/user.rb": {
+        "lines": [1, 1, null, 0, 1, null, 1, 1, 0, null]
+      },
+      "/home/runner/work/myapp/myapp/app/services/auth_service.rb": {
+        "lines": [1, 1, 0, 0, 0, null, 1, 0, 0, null]
+      },
+      "/home/runner/work/myapp/myapp/app/models/account.rb": {
+        "lines": [1, 1, 1, null, 1, 1, null, 0, 0, null]
+      }
+    },
+    "timestamp": 1700000001
+  }
+}

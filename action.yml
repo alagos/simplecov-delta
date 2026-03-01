@@ -1,0 +1,101 @@
+name: 'SimpleCov Delta'
+description: >
+  Merges SimpleCov coverage results from parallel test runs, compares against
+  a stored baseline, and reports per-file coverage deltas via GitHub Check Runs
+  (with inline annotations), Job Summary, and an optional PR comment.
+
+branding:
+  icon: 'bar-chart-2'
+  color: 'green'
+
+inputs:
+  resultset-paths:
+    description: >
+      Glob pattern(s) to find .resultset.json files.
+      Multiple patterns separated by newlines.
+      Example: results/*/.resultset.json
+    required: true
+
+  baseline-path:
+    description: >
+      Path to a baseline .resultset.json file (for comparison).
+      If not provided, no diff is computed.
+    required: false
+    default: ''
+
+  coverage-path:
+    description: 'Output directory for merged results (HTML, .resultset.json).'
+    required: false
+    default: 'coverage'
+
+  simplecov-profile:
+    description: 'SimpleCov profile to use during collation (e.g., rails, root).'
+    required: false
+    default: 'rails'
+
+  simplecov-filters:
+    description: >
+      Newline-separated list of regex filters to exclude from coverage
+      (e.g., ^/vendor/).
+    required: false
+    default: ''
+
+  simplecov-groups:
+    description: >
+      Newline-separated list of name:path pairs for SimpleCov groups
+      (e.g., Services:app/services).
+    required: false
+    default: ''
+
+  min-coverage:
+    description: >
+      Minimum overall coverage percentage. If below, the check run is
+      marked as neutral.
+    required: false
+    default: '0'
+
+  token:
+    description: 'GitHub token for creating Check Runs and PR comments.'
+    required: false
+    default: ${{ github.token }}
+
+  check-name:
+    description: 'Name for the GitHub Check Run.'
+    required: false
+    default: 'Coverage Report'
+
+  post-comment:
+    description: 'Whether to post/update a sticky PR comment with coverage summary.'
+    required: false
+    default: 'true'
+
+  annotations:
+    description: 'Whether to add inline annotations on uncovered lines in changed files.'
+    required: false
+    default: 'true'
+
+outputs:
+  total-coverage:
+    description: 'Overall coverage percentage (e.g., 54.2).'
+  coverage-delta:
+    description: 'Change vs baseline (e.g., +1.3 or -0.5). Empty if no baseline provided.'
+  html-path:
+    description: 'Path to the merged HTML report directory.'
+  resultset-path:
+    description: 'Path to the merged .resultset.json file.'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    RESULTSET_PATHS: ${{ inputs.resultset-paths }}
+    BASELINE_PATH: ${{ inputs.baseline-path }}
+    COVERAGE_PATH: ${{ inputs.coverage-path }}
+    SIMPLECOV_PROFILE: ${{ inputs.simplecov-profile }}
+    SIMPLECOV_FILTERS: ${{ inputs.simplecov-filters }}
+    SIMPLECOV_GROUPS: ${{ inputs.simplecov-groups }}
+    MIN_COVERAGE: ${{ inputs.min-coverage }}
+    GITHUB_TOKEN: ${{ inputs.token }}
+    CHECK_NAME: ${{ inputs.check-name }}
+    POST_COMMENT: ${{ inputs.post-comment }}
+    ANNOTATIONS: ${{ inputs.annotations }}

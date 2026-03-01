@@ -1,0 +1,11 @@
+{
+  "pull_request": {
+    "number": 42,
+    "base": {
+      "ref": "main"
+    }
+  },
+  "repository": {
+    "default_branch": "main"
+  }
+}
