@@ -5,46 +5,48 @@ require 'spec_helper'
 require_relative '../scripts/report'
 
 RSpec.describe SimpleCovDelta::Report do
-  describe '.delta_indicator' do
+  subject(:report) { described_class.new }
+
+  describe '#delta_indicator' do
     it 'returns dash for nil' do
-      expect(described_class.delta_indicator(nil)).to eq('—')
+      expect(report.delta_indicator(nil)).to eq('—')
     end
 
     it 'formats positive delta with check mark' do
-      expect(described_class.delta_indicator(1.3)).to eq('+1.3% ✅')
+      expect(report.delta_indicator(1.3)).to eq('+1.3% ✅')
     end
 
     it 'formats negative delta with warning' do
-      expect(described_class.delta_indicator(-2.5)).to eq('-2.5% ⚠️')
+      expect(report.delta_indicator(-2.5)).to eq('-2.5% ⚠️')
     end
 
     it 'formats zero delta' do
-      expect(described_class.delta_indicator(0.0)).to eq('+0.0%')
+      expect(report.delta_indicator(0.0)).to eq('+0.0%')
     end
   end
 
-  describe '.format_uncovered_lines' do
+  describe '#format_uncovered_lines' do
     it 'returns dash for empty lines' do
-      expect(described_class.format_uncovered_lines([])).to eq('—')
-      expect(described_class.format_uncovered_lines(nil)).to eq('—')
+      expect(report.format_uncovered_lines([])).to eq('—')
+      expect(report.format_uncovered_lines(nil)).to eq('—')
     end
 
     it 'formats single lines' do
-      expect(described_class.format_uncovered_lines([5, 10, 15])).to eq('5, 10, 15')
+      expect(report.format_uncovered_lines([5, 10, 15])).to eq('5, 10, 15')
     end
 
     it 'groups consecutive lines into ranges' do
-      expect(described_class.format_uncovered_lines([5, 6, 7, 10, 15, 16])).to eq('5-7, 10, 15-16')
+      expect(report.format_uncovered_lines([5, 6, 7, 10, 15, 16])).to eq('5-7, 10, 15-16')
     end
 
     it 'handles single-element arrays' do
-      expect(described_class.format_uncovered_lines([42])).to eq('42')
+      expect(report.format_uncovered_lines([42])).to eq('42')
     end
   end
 
-  describe '.build_annotations' do
+  describe '#build_annotations' do
     it 'returns empty array when no comparison' do
-      expect(described_class.build_annotations(nil)).to eq([])
+      expect(report.build_annotations(nil)).to eq([])
     end
 
     it 'builds annotations from uncovered lines' do
@@ -57,7 +59,7 @@ RSpec.describe SimpleCovDelta::Report do
         ]
       }
 
-      annotations = described_class.build_annotations(comparison)
+      annotations = report.build_annotations(comparison)
       expect(annotations.size).to eq(2)
 
       expect(annotations[0][:path]).to eq('app/models/user.rb')
@@ -77,14 +79,14 @@ RSpec.describe SimpleCovDelta::Report do
         ]
       }
 
-      expect(described_class.build_annotations(comparison)).to eq([])
+      expect(report.build_annotations(comparison)).to eq([])
     end
   end
 
-  describe '.build_groups_table' do
+  describe '#build_groups_table' do
     it 'returns empty string when no groups' do
-      expect(described_class.build_groups_table([])).to eq('')
-      expect(described_class.build_groups_table(nil)).to eq('')
+      expect(report.build_groups_table([])).to eq('')
+      expect(report.build_groups_table(nil)).to eq('')
     end
 
     it 'builds table with deltas when baseline is present' do
@@ -93,7 +95,7 @@ RSpec.describe SimpleCovDelta::Report do
         { 'name' => 'Services', 'current' => 49.2, 'baseline' => 50.3, 'delta' => -1.1 }
       ]
 
-      table = described_class.build_groups_table(groups)
+      table = report.build_groups_table(groups)
       expect(table).to include('Models')
       expect(table).to include('78.1%')
       expect(table).to include('+0.3%')
@@ -107,13 +109,13 @@ RSpec.describe SimpleCovDelta::Report do
         { 'name' => 'Services', 'current' => 49.2 }
       ]
 
-      table = described_class.build_groups_table(groups)
+      table = report.build_groups_table(groups)
       expect(table).to include('Models')
       expect(table).not_to include('Δ')
     end
   end
 
-  describe '.build_pr_comment' do
+  describe '#build_pr_comment' do
     let(:coverage_result) do
       {
         'total_coverage' => 54.2,
@@ -124,8 +126,8 @@ RSpec.describe SimpleCovDelta::Report do
     end
 
     it 'builds comment without comparison' do
-      comment = described_class.build_pr_comment(coverage_result, nil, 'https://example.com/run/1')
-      expect(comment).to include('<!-- simplecov-delta -->')
+      comment = report.build_pr_comment(coverage_result, nil)
+      expect(comment).to include('<!-- coverage-report-action -->')
       expect(comment).to include('54.2%')
       expect(comment).to include('Coverage Report')
     end
@@ -142,16 +144,28 @@ RSpec.describe SimpleCovDelta::Report do
         ]
       }
 
-      comment = described_class.build_pr_comment(coverage_result, comparison, 'https://example.com/run/1')
+      comment = report.build_pr_comment(coverage_result, comparison)
       expect(comment).to include('+1.3%')
       expect(comment).to include('Models')
       expect(comment).to include('user.rb')
     end
   end
 
-  describe '.build_job_summary' do
+  describe '#build_job_summary' do
     let(:coverage_result) do
-      { 'total_coverage' => 54.2, 'groups' => [] }
+      {
+        'total_coverage' => 54.2,
+        'groups' => [],
+        'files' => [
+          {
+            'path' => 'webapp/app/models/user.rb',
+            'coverage' => 89.2,
+            'total_lines' => 112,
+            'covered_lines' => 100,
+            'uncovered_lines' => [12, 34, 35]
+          }
+        ]
+      }
     end
 
     it 'builds full details markdown' do
@@ -164,16 +178,18 @@ RSpec.describe SimpleCovDelta::Report do
         ]
       }
 
-      summary = described_class.build_job_summary(coverage_result, comparison, 'https://example.com/run/1')
+      summary = report.build_job_summary(coverage_result, comparison)
       expect(summary).to include('Full Details')
       expect(summary).to include('helper.rb')
       expect(summary).to include('All Files with Coverage Changes')
     end
 
     it 'builds summary without comparison' do
-      summary = described_class.build_job_summary(coverage_result, nil, 'https://example.com/run/1')
+      summary = report.build_job_summary(coverage_result, nil)
       expect(summary).to include('54.2%')
       expect(summary).not_to include('baseline')
+      expect(summary).to include('All Covered Files')
+      expect(summary).to include('user.rb')
     end
   end
 end
