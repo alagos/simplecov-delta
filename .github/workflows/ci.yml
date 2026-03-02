@@ -19,8 +19,71 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
 
-      - name: Run specs
+      - name: Run specs with coverage
         run: bundle exec rspec --format documentation
+
+      - name: Upload coverage result
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: coverage-rspec
+          path: coverage/.resultset.json
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 1
+
+  coverage-report:
+    name: '📊 Coverage Report'
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    needs: [test]
+
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download coverage results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "coverage-*"
+          path: coverage-results/
+
+      - name: Restore coverage baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: coverage-baseline/
+          key: coverage-baseline-${{ github.head_ref }}-
+          restore-keys: |
+            coverage-baseline-${{ github.head_ref }}-
+            coverage-baseline-${{ github.event.pull_request.base.ref }}-
+            coverage-baseline-${{ github.event.repository.default_branch }}-
+
+      - name: Generate coverage report using simplecov-delta
+        uses: ./
+        with:
+          resultset-paths: |
+            coverage-results/*/.resultset.json
+          baseline-path: coverage-baseline/.resultset.json
+          min-coverage: 80
+
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-report
+          path: coverage/
+          retention-days: 30
+
+      - name: Save coverage baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: coverage/.resultset.json
+          key: coverage-baseline-${{ github.ref_name }}-${{ github.sha }}
 
   lint:
     name: Lint
