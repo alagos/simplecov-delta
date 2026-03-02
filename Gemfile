@@ -8,6 +8,7 @@ gem 'octokit', '~> 10.0'
 gem 'simplecov', '~> 0.22'
 
 group :test do
+  gem 'pry-byebug', '~> 3.12'
   gem 'rspec', '~> 3.13'
   gem 'webmock', '~> 3.23'
 end
