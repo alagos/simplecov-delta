@@ -405,9 +405,14 @@ module SimpleCovDelta
       SimpleCov.coverage_dir(coverage_path)
       SimpleCov.formatters = [SimpleCov::Formatter::HTMLFormatter]
 
+      # Capture instance method values before entering SimpleCov.collate block
+      # The block's context changes via instance_exec, so direct method calls won't work
+      filter_patterns = filters
+      group_configs = groups
+
       SimpleCov.collate([merged_resultset_path], profile) do
-        filters.each { |filter_regex| add_filter Regexp.new(filter_regex) }
-        groups.map { |gd| gd.split(':', 2) }.each do |name, path|
+        filter_patterns.each { |filter_regex| add_filter Regexp.new(filter_regex) }
+        group_configs.map { |gd| gd.split(':', 2) }.each do |name, path|
           add_group(name.strip, path.strip) if name && path
         end
       end
