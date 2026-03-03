@@ -53,14 +53,11 @@ jobs:
           path: coverage-results/
 
       - name: Restore coverage baseline
-        if: github.event_name == 'pull_request'
         uses: actions/cache/restore@v4
         with:
           path: coverage-baseline/
-          key: coverage-baseline-${{ github.head_ref }}-
+          key: ${{ format('coverage-baseline-{0}-', github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name) }}
           restore-keys: |
-            coverage-baseline-${{ github.head_ref }}-
-            coverage-baseline-${{ github.event.pull_request.base.ref }}-
             coverage-baseline-${{ github.event.repository.default_branch }}-
 
       - name: Generate coverage report using simplecov-delta
@@ -79,7 +76,7 @@ jobs:
           retention-days: 30
 
       - name: Save coverage baseline
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
           path: coverage/.resultset.json

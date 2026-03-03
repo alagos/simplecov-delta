@@ -63,7 +63,7 @@ Add a job that merges and reports coverage:
     name: '📊 Coverage Report'
     runs-on: ubuntu-latest
     if: success() || failure()
-    needs: [test]
+    needs: [test] # or whatever your test job is called
 
     permissions:
       contents: read
@@ -80,14 +80,15 @@ Add a job that merges and reports coverage:
           path: coverage-results/
 
       - name: Restore coverage baseline
-        if: github.event_name == 'pull_request'
         uses: actions/cache/restore@v4
         with:
           path: coverage-baseline/
-          key: coverage-baseline-${{ github.head_ref }}-
+          # Here is restoring coverage data using PR target branch for PRs,
+          # otherwise current branch and fallbacks to default branch.
+          # This ensures we always compare against the most relevant baseline
+          # for the context, but you can customize this strategy as needed.
+          key: ${{ format('coverage-baseline-{0}-', github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name) }}
           restore-keys: |
-            coverage-baseline-${{ github.head_ref }}-
-            coverage-baseline-${{ github.event.pull_request.base.ref }}-
             coverage-baseline-${{ github.event.repository.default_branch }}-
 
       - name: Generate coverage report
@@ -105,10 +106,11 @@ Add a job that merges and reports coverage:
           retention-days: 30
 
       - name: Save coverage baseline
+        if: github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
           path: coverage/.resultset.json
-          key: coverage-baseline-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+          key: coverage-baseline-${{ github.ref_name }}-${{ github.sha }}
 ```
 
 ## Inputs
@@ -164,22 +166,17 @@ Reports results through three channels:
 | **Job Summary** | All files with changes         | 1 MB         |
 | **Check Run**   | Annotations on uncovered lines | 50 per batch |
 
-## Baseline Caching Strategy
-
-Use GitHub Actions Cache with a branch-aware hierarchy:
-
-1. **Current branch** — Previous coverage from this feature branch
-2. **PR target branch** — The branch being merged into
-3. **Default branch** — `master`/`main` as fallback
-
-The restore-keys cascade in the example above implements this hierarchy
-automatically.
-
 ## Check Run Behavior
 
 - **success** — Coverage ≥ `min-coverage` and delta ≥ 0 (or no baseline)
 - **neutral** — Coverage < `min-coverage` or delta < 0
 - Never marks as **failure** — coverage is advisory, not blocking
+
+
+## TODO
+
+- Improve annotations
+- Detect when branch coverage has been used and report uncovered branches as well
 
 ## License
 
