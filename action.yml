@@ -1,11 +1,8 @@
 name: 'SimpleCov Delta'
-description: >
-  Merges SimpleCov coverage results from parallel test runs, compares against
-  a stored baseline, and reports per-file coverage deltas via GitHub Check Runs
-  (with inline annotations), Job Summary, and an optional PR comment.
+description: 'Merge SimpleCov coverage results and report deltas via GitHub Checks and PR comments.'
 
 branding:
-  icon: 'bar-chart-2'
+  icon: 'triangle'
   color: 'green'
 
 inputs:
