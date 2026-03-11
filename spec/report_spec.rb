@@ -16,455 +16,912 @@ RSpec.describe SimpleCovDelta::Report do
   end
 
   describe '#delta_indicator' do
-    it 'returns dash for nil' do
-      expect(report.delta_indicator(nil)).to eq('—')
+    subject(:result) { report.delta_indicator(delta) }
+
+    context 'when delta is nil' do
+      let(:delta) { nil }
+
+      it { is_expected.to eq('—') }
     end
 
-    it 'formats positive delta with check mark' do
-      expect(report.delta_indicator(1.3)).to eq('+1.3% ✅')
+    context 'when delta is positive' do
+      let(:delta) { 1.3 }
+
+      it { is_expected.to eq('+1.3% ✅') }
     end
 
-    it 'formats negative delta with warning' do
-      expect(report.delta_indicator(-2.5)).to eq('-2.5% ⚠️')
+    context 'when delta is negative' do
+      let(:delta) { -2.5 }
+
+      it { is_expected.to eq('-2.5% ⚠️') }
     end
 
-    it 'formats zero delta' do
-      expect(report.delta_indicator(0.0)).to eq('+0.0%')
+    context 'when delta is zero' do
+      let(:delta) { 0.0 }
+
+      it { is_expected.to eq('+0.0%') }
     end
   end
 
   describe '#format_uncovered_lines' do
-    it 'returns dash for empty lines' do
-      expect(report.format_uncovered_lines([])).to eq('—')
-      expect(report.format_uncovered_lines(nil)).to eq('—')
+    subject(:result) { report.format_uncovered_lines(lines) }
+
+    context 'when lines are empty' do
+      let(:lines) { [] }
+
+      it { is_expected.to eq('—') }
     end
 
-    it 'formats single lines' do
-      expect(report.format_uncovered_lines([5, 10, 15])).to eq('5, 10, 15')
+    context 'when lines are nil' do
+      let(:lines) { nil }
+
+      it { is_expected.to eq('—') }
     end
 
-    it 'groups consecutive lines into ranges' do
-      expect(report.format_uncovered_lines([5, 6, 7, 10, 15, 16])).to eq('5-7, 10, 15-16')
+    context 'when lines are single values' do
+      let(:lines) { [5, 10, 15] }
+
+      it { is_expected.to eq('5, 10, 15') }
     end
 
-    it 'handles single-element arrays' do
-      expect(report.format_uncovered_lines([42])).to eq('42')
+    context 'when lines contain consecutive ranges' do
+      let(:lines) { [5, 6, 7, 10, 15, 16] }
+
+      it { is_expected.to eq('5-7, 10, 15-16') }
+    end
+
+    context 'when lines has one element' do
+      let(:lines) { [42] }
+
+      it { is_expected.to eq('42') }
     end
   end
 
   describe '#build_annotations' do
-    it 'returns empty array when no comparison' do
-      expect(report.build_annotations(nil)).to eq([])
+    subject(:result) { report.build_annotations(comparison) }
+
+    context 'when comparison is nil' do
+      let(:comparison) { nil }
+
+      it { is_expected.to eq([]) }
     end
 
-    it 'builds annotations from uncovered lines' do
-      comparison = {
-        'changed_files' => [
-          {
-            'path' => 'app/models/user.rb',
-            'uncovered_lines' => [5, 6, 7, 12]
-          }
-        ]
-      }
+    context 'when changed files include uncovered lines' do
+      let(:comparison) do
+        { 'changed_files' => [
+          { 'path' => 'app/models/user.rb',
+            'uncovered_lines' => [5, 6, 7, 12] }
+        ] }
+      end
 
-      annotations = report.build_annotations(comparison)
-      expect(annotations.size).to eq(2)
+      it 'returns two annotations' do
+        expect(result.size).to eq(2)
+      end
 
-      expect(annotations[0][:path]).to eq('app/models/user.rb')
-      expect(annotations[0][:start_line]).to eq(5)
-      expect(annotations[0][:end_line]).to eq(7)
-      expect(annotations[0][:message]).to eq('Lines 5-7 are not covered by tests')
+      it 'builds the first range annotation' do
+        expect(result[0]).to eq(
+          path: 'app/models/user.rb',
+          start_line: 5,
+          end_line: 7,
+          annotation_level: 'warning',
+          message: 'Lines 5-7 are not covered by tests'
+        )
+      end
 
-      expect(annotations[1][:start_line]).to eq(12)
-      expect(annotations[1][:end_line]).to eq(12)
-      expect(annotations[1][:message]).to eq('Line 12 is not covered by tests')
+      it 'builds the trailing single-line annotation' do
+        expect(result[1]).to eq(
+          path: 'app/models/user.rb',
+          start_line: 12,
+          end_line: 12,
+          annotation_level: 'warning',
+          message: 'Line 12 is not covered by tests'
+        )
+      end
     end
 
-    it 'skips files with no uncovered lines' do
-      comparison = {
-        'changed_files' => [
+    context 'when changed files have no uncovered lines' do
+      let(:comparison) do
+        { 'changed_files' => [
           { 'path' => 'app/models/user.rb', 'uncovered_lines' => [] }
-        ]
-      }
+        ] }
+      end
 
-      expect(report.build_annotations(comparison)).to eq([])
+      it { is_expected.to eq([]) }
     end
   end
 
   describe '#build_groups_table' do
-    it 'returns empty string when no groups' do
-      expect(report.build_groups_table([])).to eq('')
-      expect(report.build_groups_table(nil)).to eq('')
+    subject(:result) { report.build_groups_table(groups) }
+
+    context 'when groups are empty' do
+      let(:groups) { [] }
+
+      it { is_expected.to be_nil }
     end
 
-    it 'builds table with deltas when baseline is present' do
-      groups = [
-        { 'name' => 'Models', 'current' => 78.1, 'baseline' => 77.8, 'delta' => 0.3 },
-        { 'name' => 'Services', 'current' => 49.2, 'baseline' => 50.3, 'delta' => -1.1 }
-      ]
+    context 'when groups are nil' do
+      let(:groups) { nil }
 
-      table = report.build_groups_table(groups)
-      expect(table).to include('Models')
-      expect(table).to include('78.1%')
-      expect(table).to include('+0.3%')
-      expect(table).to include('Services')
-      expect(table).to include('-1.1%')
+      it { is_expected.to be_nil }
     end
 
-    it 'builds table without deltas when no baseline' do
-      groups = [
-        { 'name' => 'Models', 'current' => 78.1 },
-        { 'name' => 'Services', 'current' => 49.2 }
-      ]
+    context 'when groups include baseline values' do
+      let(:groups) do
+        [{ 'name' => 'Models', 'current' => 78.1, 'baseline' => 77.8, 'delta' => 0.3 },
+         { 'name' => 'Services', 'current' => 49.2, 'baseline' => 50.3, 'delta' => -1.1 }]
+      end
 
-      table = report.build_groups_table(groups)
-      expect(table).to include('Models')
-      expect(table).not_to include('Δ')
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | Group | Coverage | Δ |
+          |-------|----------|---|
+          | Models | 78.1% | +0.3% ✅ |
+          | Services | 49.2% | -1.1% ⚠️ |
+        MARKDOWN
+      end
+    end
+
+    context 'when groups do not include baseline values' do
+      let(:groups) do
+        [{ 'name' => 'Models', 'current' => 78.1 },
+         { 'name' => 'Services', 'current' => 49.2 }]
+      end
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | Group | Coverage |
+          |-------|----------|
+          | Models | 78.1% |
+          | Services | 49.2% |
+        MARKDOWN
+      end
     end
   end
 
   describe '#build_pr_comment' do
+    subject(:result) { report.build_pr_comment(coverage_result, comparison) }
+
     let(:coverage_result) do
-      {
-        'total_coverage' => 54.2,
-        'groups' => [
-          { 'name' => 'Models', 'coverage' => 78.1 }
-        ]
-      }
+      { 'total_coverage' => 54.2,
+        'groups' => [{ 'name' => 'Models', 'coverage' => 78.1 }] }
     end
 
-    it 'builds comment without comparison' do
-      comment = report.build_pr_comment(coverage_result, nil)
-      expect(comment).to include('<!-- coverage-report-action -->')
-      expect(comment).to include('54.2%')
-      expect(comment).to include('Coverage Report')
+    context 'when comparison is absent' do
+      let(:comparison) { nil }
+
+      it do
+        is_expected.to eq(<<~MARKDOWN)
+          <!-- coverage-report-action -->
+          ## 📊 Coverage Report
+
+          **Overall: 54.2%**
+
+          ### By Group
+
+          | Group | Coverage |
+          |-------|----------|
+          | Models | 78.1% |
+
+          📋 [View report & artifacts](https://github.com//actions/runs/)
+        MARKDOWN
+      end
     end
 
-    it 'builds comment with comparison' do
-      comparison = {
-        'overall' => { 'current' => 54.2, 'baseline' => 52.9, 'delta' => 1.3 },
-        'groups' => [
-          { 'name' => 'Models', 'current' => 78.1, 'baseline' => 77.8, 'delta' => 0.3 }
-        ],
-        'changed_files' => [
-          { 'path' => 'app/models/user.rb', 'current' => 89.2, 'baseline' => 86.1, 'delta' => 3.1,
-            'uncovered_lines' => [] }
-        ]
-      }
+    context 'when comparison is present' do
+      let(:comparison) do
+        { 'overall' => { 'current' => 54.2, 'baseline' => 52.9, 'delta' => 1.3 },
+          'groups' => [{ 'name' => 'Models', 'current' => 78.1, 'baseline' => 77.8, 'delta' => 0.3 }],
+          'changed_files' => [
+            { 'path' => 'app/models/user.rb', 'current' => 89.2, 'baseline' => 86.1, 'delta' => 3.1,
+              'uncovered_lines' => [] }
+          ] }
+      end
 
-      comment = report.build_pr_comment(coverage_result, comparison)
-      expect(comment).to include('+1.3%')
-      expect(comment).to include('Models')
-      expect(comment).to include('user.rb')
+      it do
+        is_expected.to eq(<<~MARKDOWN)
+          <!-- coverage-report-action -->
+          ## 📊 Coverage Report
+
+          **Overall: 54.2%** (+1.3% ✅ vs baseline)
+
+          ### By Group
+
+          | Group | Coverage | Δ |
+          |-------|----------|---|
+          | Models | 78.1% | +0.3% ✅ |
+
+          ### Changed Files
+
+          | File | Coverage | Δ | Uncovered Lines |
+          |------|----------|---|-----------------|
+          | app/models/user.rb | 89.2% | +3.1% ✅ | — |
+
+          📋 [View report & artifacts](https://github.com//actions/runs/)
+        MARKDOWN
+      end
     end
   end
 
   describe '#build_job_summary' do
+    subject(:result) { report.build_job_summary(coverage_result, comparison) }
+
     let(:coverage_result) do
-      {
-        'total_coverage' => 54.2,
+      { 'total_coverage' => 54.2,
         'groups' => [],
         'files' => [
           {
-            'path' => 'webapp/app/models/user.rb',
+            'path' => 'app/models/user.rb',
             'coverage' => 89.2,
             'total_lines' => 112,
             'covered_lines' => 100,
             'uncovered_lines' => [12, 34, 35]
           }
-        ]
-      }
+        ] }
     end
 
-    it 'builds full details markdown' do
-      comparison = {
-        'overall' => { 'current' => 54.2, 'baseline' => 52.9, 'delta' => 1.3 },
-        'groups' => [],
-        'changed_files' => [],
-        'all_changed_coverage_files' => [
-          { 'path' => 'app/helpers/helper.rb', 'current' => 45.0, 'baseline' => 48.0, 'delta' => -3.0 }
-        ]
-      }
+    context 'when comparison is present' do
+      let(:comparison) do
+        { 'overall' => { 'current' => 54.2, 'baseline' => 52.9, 'delta' => 1.3 },
+          'groups' => [],
+          'changed_files' => [],
+          'all_changed_coverage_files' => [
+            { 'path' => 'app/helpers/helper.rb', 'current' => 45.0, 'baseline' => 48.0, 'delta' => -3.0 }
+          ] }
+      end
 
-      summary = report.build_job_summary(coverage_result, comparison)
-      expect(summary).to include('Full Details')
-      expect(summary).to include('helper.rb')
-      expect(summary).to include('All Files with Coverage Changes')
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          ## 📊 Coverage Report — Full Details
+
+          **Overall: 54.2%** (+1.3% ✅ vs baseline)
+
+          ### All Files with Coverage Changes
+
+          Files not touched in this PR but whose coverage was affected:
+
+          | File | Coverage | Δ |
+          |------|----------|---|
+          | app/helpers/helper.rb | 45.0% | -3.0% ⚠️ |
+        MARKDOWN
+      end
     end
 
-    it 'builds summary without comparison' do
-      summary = report.build_job_summary(coverage_result, nil)
-      expect(summary).to include('54.2%')
-      expect(summary).not_to include('baseline')
-      expect(summary).to include('All Covered Files')
-      expect(summary).to include('user.rb')
+    context 'when comparison is absent' do
+      let(:comparison) { nil }
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          ## 📊 Coverage Report — Full Details
+
+          **Overall: 54.2%**
+
+          ### All Covered Files
+
+          | File | Coverage | Covered / Total | Uncovered Lines |
+          |------|----------|-----------------|-----------------|
+          | app/models/user.rb | 89.2% | 100 / 112 | 12, 34-35 |
+        MARKDOWN
+      end
     end
   end
 
-  describe 'private behavior' do
-    it 'builds no-comparison sections with and without all files' do
-      coverage_result = {
+  describe '#no_comparison_sections' do
+    subject(:result) { report.send(:no_comparison_sections, coverage_result, include_all_files: include_all_files) }
+
+    let(:coverage_result) do
+      {
         'groups' => [{ 'name' => 'Models', 'coverage' => 50.0 }],
         'files' => [{ 'path' => 'a.rb', 'coverage' => 100.0, 'covered_lines' => 1, 'total_lines' => 1,
                       'uncovered_lines' => [] }]
       }
-
-      text = report.send(:no_comparison_sections, coverage_result, include_all_files: true)
-      expect(text).to include('By Group')
-      expect(text).to include('All Covered Files')
-
-      short_text = report.send(:no_comparison_sections, coverage_result, include_all_files: false)
-      expect(short_text).to include('By Group')
-      expect(short_text).not_to include('All Covered Files')
     end
 
-    it 'builds changed files table in both baseline and no-baseline modes' do
-      with_baseline = report.send(:build_changed_files_table, [{ 'path' => 'a.rb', 'current' => 50.0, 'baseline' => 40.0,
-                                                                 'delta' => 10.0, 'uncovered_lines' => [2] }])
-      no_baseline = report.send(:build_changed_files_table,
-                                [{ 'path' => 'b.rb', 'current' => 50.0, 'uncovered_lines' => [3] }])
+    context 'when including all files' do
+      let(:include_all_files) { true }
 
-      expect(with_baseline).to include('Δ')
-      expect(no_baseline).not_to include('| Δ |')
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          ### By Group
+
+          | Group | Coverage |
+          |-------|----------|
+          | Models | 50.0% |
+
+          ### All Covered Files
+
+          | File | Coverage | Covered / Total | Uncovered Lines |
+          |------|----------|-----------------|-----------------|
+          | a.rb | 100.0% | 1 / 1 | — |
+        MARKDOWN
+      end
     end
 
-    it 'builds all-changed and all-files tables' do
-      all_changed = report.send(:build_all_changed_table, [{ 'path' => 'a.rb', 'current' => 40.0, 'delta' => -1.0 }])
-      all_files = report.send(:build_all_files_table, [{ 'path' => 'a.rb', 'coverage' => 40.0, 'covered_lines' => 2,
-                                                         'total_lines' => 5, 'uncovered_lines' => [3, 4] }])
+    context 'when excluding all files' do
+      let(:include_all_files) { false }
 
-      expect(all_changed).to include('a.rb')
-      expect(all_files).to include('2 / 5')
-      expect(all_files).to include('3-4')
-      expect(report.send(:build_all_changed_table, nil)).to eq('')
-      expect(report.send(:build_all_files_table, [])).to eq('')
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          ### By Group
+
+          | Group | Coverage |
+          |-------|----------|
+          | Models | 50.0% |
+        MARKDOWN
+      end
+    end
+  end
+
+  describe '#build_changed_files_table' do
+    subject(:result) { report.send(:build_changed_files_table, changed_files) }
+
+    context 'when changed files are nil' do
+      let(:changed_files) { nil }
+
+      it { is_expected.to be_nil }
     end
 
-    it 'groups consecutive lines and creates annotation ranges' do
-      grouped = report.send(:group_consecutive, [1, 2, 3, 8, 10, 11])
-      expect(grouped).to eq([[1, 2, 3], [8], [10, 11]])
-
-      annotations = report.send(:ranges_to_annotations, 'a.rb', [2, 3, 6])
-      expect(annotations.size).to eq(2)
-      expect(annotations.first[:message]).to include('2-3')
-      expect(annotations.last[:message]).to include('Line 6')
-    end
-
-    it 'builds single and range annotation messages' do
-      single = report.send(:build_annotation, 'a.rb', { start: 4, end: 4 })
-      range = report.send(:build_annotation, 'a.rb', { start: 4, end: 9 })
-
-      expect(single[:message]).to eq('Line 4 is not covered by tests')
-      expect(range[:message]).to eq('Lines 4-9 are not covered by tests')
-    end
-
-    it 'determines neutral conclusion on threshold or negative delta' do
-      ENV['MIN_COVERAGE'] = '75'
-      low = report.send(:determine_conclusion, { 'total_coverage' => 70.0 }, nil)
-      expect(low).to eq('neutral')
-
-      ok_but_negative = report.send(:determine_conclusion, { 'total_coverage' => 80.0 },
-                                    { 'overall' => { 'delta' => -0.1 } })
-      expect(ok_but_negative).to eq('neutral')
-
-      success = report.send(:determine_conclusion, { 'total_coverage' => 80.0 }, { 'overall' => { 'delta' => 0.1 } })
-      expect(success).to eq('success')
-    end
-
-    it 'builds check run summary with and without comparison' do
-      summary_with = report.send(:check_run_summary, { 'total_coverage' => 80.12 },
-                                 { 'overall' => { 'delta' => 1.25 } })
-      summary_without = report.send(:check_run_summary, { 'total_coverage' => 80.12 }, nil)
-
-      expect(summary_with).to include('(+1.2% vs baseline)')
-      expect(summary_without).to eq('Coverage: 80.1%')
-    end
-
-    it 'filters annotations based on ANNOTATIONS env' do
-      annotations = [{ path: 'a.rb' }]
-      ENV['ANNOTATIONS'] = 'false'
-      expect(report.send(:filter_annotations, annotations)).to eq([])
-
-      report.instance_variable_set(:@annotations_enabled, nil)
-      ENV['ANNOTATIONS'] = 'true'
-      expect(report.send(:filter_annotations, annotations)).to eq(annotations)
-    end
-
-    it 'submits check run and remaining annotation batches' do
-      client = instance_double(Octokit::Client)
-      check_run = double('check_run', id: 123)
-      allow(report).to receive(:github_client).and_return(client)
-      allow(client).to receive(:create_check_run).and_return(check_run)
-      allow(client).to receive(:update_check_run)
-      ENV['GITHUB_REPOSITORY'] = 'org/repo'
-      ENV['GITHUB_SHA'] = 'abc123'
-
-      annotations = (1..55).map do |i|
-        { path: 'a.rb', start_line: i, end_line: i, annotation_level: 'warning', message: "m#{i}" }
+    context 'when files include baseline data' do
+      let(:changed_files) do
+        [{ 'path' => 'a.rb', 'current' => 50.0, 'baseline' => 40.0, 'delta' => 10.0, 'uncovered_lines' => [2] }]
       end
 
-      id = report.send(:submit_check_run, 'Coverage Report', 'abc123', 'success', 'Summary', annotations)
-      report.send(:submit_remaining_annotations, id, 'Summary', annotations)
-
-      expect(id).to eq(123)
-      expect(client).to have_received(:create_check_run)
-      expect(client).to have_received(:update_check_run).at_least(:once)
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | File | Coverage | Δ | Uncovered Lines |
+          |------|----------|---|-----------------|
+          | a.rb | 50.0% | +10.0% ✅ | 2 |
+        MARKDOWN
+      end
     end
 
-    it 'creates check run and rescues octokit errors' do
+    context 'when files do not include baseline data' do
+      let(:changed_files) { [{ 'path' => 'b.rb', 'current' => 50.0, 'uncovered_lines' => [3] }] }
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | File | Coverage | Uncovered Lines |
+          |------|----------|-----------------|
+          | b.rb | 50.0% | 3 |
+        MARKDOWN
+      end
+    end
+
+    context 'when files are new and have no baseline data' do
+      let(:changed_files) do
+        [
+          { 'path' => 'new_file_1.rb', 'current' => 85.0, 'uncovered_lines' => [5, 6] },
+          { 'path' => 'new_file_2.rb', 'current' => 92.3, 'uncovered_lines' => [] }
+        ]
+      end
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | File | Coverage | Uncovered Lines |
+          |------|----------|-----------------|
+          | new_file_1.rb | 85.0% | 5-6 |
+          | new_file_2.rb | 92.3% | — |
+        MARKDOWN
+      end
+    end
+  end
+
+  describe '#build_all_changed_table' do
+    subject(:result) { report.send(:build_all_changed_table, all_changed) }
+
+    context 'when files are nil' do
+      let(:all_changed) { nil }
+
+      it { is_expected.to be_nil }
+    end
+
+    context 'when files have coverage changes' do
+      let(:all_changed) { [{ 'path' => 'a.rb', 'current' => 40.0, 'delta' => -1.0 }] }
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | File | Coverage | Δ |
+          |------|----------|---|
+          | a.rb | 40.0% | -1.0% ⚠️ |
+        MARKDOWN
+      end
+    end
+  end
+
+  describe '#build_all_files_table' do
+    subject(:result) { report.send(:build_all_files_table, files) }
+
+    context 'when files are empty' do
+      let(:files) { [] }
+
+      it { is_expected.to be_nil }
+    end
+
+    context 'when files have coverage details' do
+      let(:files) do
+        [{ 'path' => 'a.rb', 'coverage' => 40.0, 'covered_lines' => 2, 'total_lines' => 5,
+           'uncovered_lines' => [3, 4] }]
+      end
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | File | Coverage | Covered / Total | Uncovered Lines |
+          |------|----------|-----------------|-----------------|
+          | a.rb | 40.0% | 2 / 5 | 3-4 |
+        MARKDOWN
+      end
+    end
+  end
+
+  describe '#group_consecutive' do
+    subject(:result) { report.send(:group_consecutive, sorted_lines) }
+
+    context 'when multiple ranges are present' do
+      let(:sorted_lines) { [1, 2, 3, 8, 10, 11] }
+
+      it { is_expected.to eq([[1, 2, 3], [8], [10, 11]]) }
+    end
+
+    context 'when a single line is present' do
+      let(:sorted_lines) { [5] }
+
+      it { is_expected.to eq([[5]]) }
+    end
+  end
+
+  describe '#ranges_to_annotations' do
+    subject(:result) { report.send(:ranges_to_annotations, file_path, uncovered_lines) }
+
+    let(:file_path) { 'a.rb' }
+
+    context 'when there are no uncovered lines' do
+      let(:uncovered_lines) { [] }
+
+      it { is_expected.to eq([]) }
+    end
+
+    context 'when uncovered lines include ranges and single lines' do
+      let(:uncovered_lines) { [2, 3, 6] }
+      let(:first_annotation) { result.first }
+      let(:last_annotation) { result.last }
+
+      it 'creates one annotation per range' do
+        expect(result.size).to eq(2)
+      end
+
+      it 'formats the first range message' do
+        expect(first_annotation[:message]).to eq('Lines 2-3 are not covered by tests')
+      end
+
+      it 'formats the trailing single-line message' do
+        expect(last_annotation[:message]).to eq('Line 6 is not covered by tests')
+      end
+    end
+  end
+
+  describe '#build_annotation' do
+    subject(:result) { report.send(:build_annotation, file_path, range) }
+
+    let(:file_path) { 'a.rb' }
+
+    context 'when the range spans a single line' do
+      let(:range) { { start: 4, end: 4 } }
+
+      it 'builds a single-line message' do
+        expect(result[:message]).to eq('Line 4 is not covered by tests')
+      end
+    end
+
+    context 'when the range spans multiple lines' do
+      let(:range) { { start: 4, end: 9 } }
+
+      it 'builds a range message' do
+        expect(result[:message]).to eq('Lines 4-9 are not covered by tests')
+      end
+    end
+  end
+
+  describe '#determine_conclusion' do
+    subject(:result) { report.send(:determine_conclusion, coverage_result, comparison) }
+
+    context 'when total coverage is below the threshold' do
+      let(:coverage_result) { { 'total_coverage' => 70.0 } }
+      let(:comparison) { nil }
+
+      before do
+        ENV['MIN_COVERAGE'] = '75'
+      end
+
+      it { is_expected.to eq('neutral') }
+    end
+
+    context 'when coverage meets the threshold but delta is negative' do
+      let(:coverage_result) { { 'total_coverage' => 80.0 } }
+      let(:comparison) { { 'overall' => { 'delta' => -0.1 } } }
+
+      before do
+        ENV['MIN_COVERAGE'] = '75'
+      end
+
+      it { is_expected.to eq('neutral') }
+    end
+
+    context 'when coverage meets the threshold and delta is positive' do
+      let(:coverage_result) { { 'total_coverage' => 80.0 } }
+      let(:comparison) { { 'overall' => { 'delta' => 0.1 } } }
+
+      before do
+        ENV['MIN_COVERAGE'] = '75'
+      end
+
+      it { is_expected.to eq('success') }
+    end
+
+    context 'when coverage meets the threshold but delta is strongly negative' do
+      let(:coverage_result) { { 'total_coverage' => 80.0 } }
+      let(:comparison) { { 'overall' => { 'delta' => -5.2 } } }
+
+      before do
+        ENV['MIN_COVERAGE'] = '50'
+      end
+
+      it { is_expected.to eq('neutral') }
+    end
+  end
+
+  describe '#check_run_summary' do
+    subject(:result) { report.send(:check_run_summary, coverage_result, comparison) }
+
+    let(:coverage_result) { { 'total_coverage' => 80.12 } }
+
+    context 'when comparison data is present' do
+      let(:comparison) { { 'overall' => { 'delta' => 1.25 } } }
+
+      it { is_expected.to eq('Coverage: 80.1% (+1.2% vs baseline)') }
+    end
+
+    context 'when comparison data is absent' do
+      let(:comparison) { nil }
+
+      it { is_expected.to eq('Coverage: 80.1%') }
+    end
+  end
+
+  describe '#filter_annotations' do
+    subject(:result) { report.send(:filter_annotations, annotations) }
+
+    let(:annotations) { [{ path: 'a.rb' }] }
+
+    context 'when annotations are disabled' do
+      before do
+        ENV['ANNOTATIONS'] = 'false'
+      end
+
+      it { is_expected.to eq([]) }
+    end
+
+    context 'when annotations are enabled' do
+      before do
+        report.instance_variable_set(:@annotations_enabled, nil)
+        ENV['ANNOTATIONS'] = 'true'
+      end
+
+      it { is_expected.to eq(annotations) }
+    end
+  end
+
+  describe '#submit_check_run' do
+    subject(:result) { report.send(:submit_check_run, check_name, sha, conclusion, summary, annotations) }
+
+    let(:client) { instance_double(Octokit::Client) }
+    let(:check_run) { double('check_run', id: 123) }
+    let(:check_name) { 'Coverage Report' }
+    let(:sha) { 'abc123' }
+    let(:conclusion) { 'success' }
+    let(:summary) { 'Summary' }
+    let(:annotations) do
+      (1..55).map do |i|
+        { path: 'a.rb', start_line: i, end_line: i, annotation_level: 'warning', message: "m#{i}" }
+      end
+    end
+
+    before do
+      allow(report).to receive(:github_client).and_return(client)
+      allow(client).to receive(:create_check_run).and_return(check_run)
+      ENV['GITHUB_REPOSITORY'] = 'org/repo'
+      ENV['GITHUB_SHA'] = sha
+    end
+
+    it { is_expected.to eq(123) }
+
+    it 'creates a check run' do
+      result
+
+      expect(client).to have_received(:create_check_run)
+    end
+  end
+
+  describe '#submit_remaining_annotations' do
+    subject(:submit_remaining) { report.send(:submit_remaining_annotations, check_run_id, summary, annotations) }
+
+    let(:client) { instance_double(Octokit::Client) }
+    let(:check_run_id) { 123 }
+    let(:summary) { 'Summary' }
+    let(:annotations) do
+      (1..55).map do |i|
+        { path: 'a.rb', start_line: i, end_line: i, annotation_level: 'warning', message: "m#{i}" }
+      end
+    end
+
+    before do
+      allow(report).to receive(:github_client).and_return(client)
+      allow(client).to receive(:update_check_run)
+      ENV['GITHUB_REPOSITORY'] = 'org/repo'
+    end
+
+    it 'submits remaining annotation batches' do
+      submit_remaining
+
+      expect(client).to have_received(:update_check_run).at_least(:once)
+    end
+  end
+
+  describe '#create_check_run' do
+    subject(:create_check_run) { report.send(:create_check_run, annotations, coverage_result, comparison) }
+
+    let(:annotations) { [] }
+    let(:coverage_result) { { 'total_coverage' => 100.0 } }
+    let(:comparison) { nil }
+
+    before do
       allow(report).to receive(:determine_conclusion).and_return('success')
       allow(report).to receive(:check_run_summary).and_return('Summary')
       allow(report).to receive(:filter_annotations).and_return([])
       allow(report).to receive(:submit_check_run).and_return(1)
       allow(report).to receive(:submit_remaining_annotations)
-
-      report.send(:create_check_run, [], { 'total_coverage' => 100.0 }, nil)
-      expect(report).to have_received(:submit_check_run)
-
-      allow(report).to receive(:submit_check_run).and_raise(Octokit::NotFound)
-      expect { report.send(:create_check_run, [], { 'total_coverage' => 100.0 }, nil) }.not_to raise_error
     end
 
-    it 'writes job summary when summary path exists, otherwise skips' do
+    context 'when check run creation succeeds' do
+      before do
+        create_check_run
+      end
+
+      it 'submits the initial check run' do
+        expect(report).to have_received(:submit_check_run)
+      end
+    end
+
+    context 'when the GitHub API raises an error' do
+      before do
+        allow(report).to receive(:submit_check_run).and_raise(Octokit::NotFound)
+      end
+
+      it 'swallows the exception' do
+        expect { create_check_run }.not_to raise_error
+      end
+    end
+  end
+
+  describe '#write_job_summary' do
+    subject(:write_summary) { report.send(:write_job_summary, markdown) }
+
+    let(:markdown) { 'hello' }
+
+    around do |example|
       Dir.mktmpdir do |dir|
-        path = File.join(dir, 'summary.md')
-        ENV['GITHUB_STEP_SUMMARY'] = path
+        @tmpdir = dir
+        example.run
+      end
+    end
 
-        report.send(:write_job_summary, 'hello')
-        expect(File.read(path)).to include('hello')
+    let(:summary_path) { File.join(@tmpdir, 'summary.md') }
 
+    context 'when the summary path is configured' do
+      before do
+        ENV['GITHUB_STEP_SUMMARY'] = summary_path
+      end
+
+      it 'writes the markdown to disk' do
+        write_summary
+
+        expect(File.read(summary_path)).to eq('hello')
+      end
+    end
+
+    context 'when the summary path is blank' do
+      before do
+        ENV['GITHUB_STEP_SUMMARY'] = summary_path
         report.instance_variable_set(:@step_summary_path, nil)
         ENV['GITHUB_STEP_SUMMARY'] = ''
-        expect { report.send(:write_job_summary, 'world') }.not_to raise_error
+      end
+
+      it 'does not raise an error' do
+        expect { write_summary }.not_to raise_error
       end
     end
+  end
 
-    it 'extracts current pr number from event payload' do
-      Dir.mktmpdir do |dir|
-        event = File.join(dir, 'event.json')
-        File.write(event, JSON.generate({ 'pull_request' => { 'number' => 77 } }))
-        ENV['GITHUB_EVENT_PATH'] = event
+  describe '#current_pr_number' do
+    subject(:result) { report.send(:current_pr_number) }
 
-        expect(report.send(:current_pr_number)).to eq(77)
+    context 'when the event file contains a pull request' do
+      around do |example|
+        Dir.mktmpdir do |dir|
+          @event_path = File.join(dir, 'event.json')
+          File.write(@event_path, JSON.generate({ 'pull_request' => { 'number' => 77 } }))
+          example.run
+        end
       end
+
+      before do
+        ENV['GITHUB_EVENT_PATH'] = @event_path
+      end
+
+      it { is_expected.to eq(77) }
     end
 
-    it 'returns nil pr number when event file is unavailable' do
-      expect(report.send(:current_pr_number)).to be_nil
+    context 'when the event file is unavailable' do
+      it { is_expected.to be_nil }
     end
+  end
 
-    it 'finds existing sticky coverage comment by marker' do
-      comment1 = double('comment_1', body: 'hello')
-      comment2 = double('comment_2', body: "x #{SimpleCovDelta::Report::COMMENT_MARKER} y")
-      client = instance_double(Octokit::Client, issue_comments: [comment1, comment2])
+  describe '#find_existing_comment' do
+    subject(:result) { report.send(:find_existing_comment, pr_number) }
 
+    let(:pr_number) { 12 }
+    let(:comment1) { double('comment_1', body: 'hello') }
+    let(:comment2) { double('comment_2', body: "x #{SimpleCovDelta::Report::COMMENT_MARKER} y") }
+    let(:client) { instance_double(Octokit::Client, issue_comments: [comment1, comment2]) }
+
+    before do
       allow(report).to receive(:github_client).and_return(client)
       ENV['GITHUB_REPOSITORY'] = 'org/repo'
-      found = report.send(:find_existing_comment, 12)
-
-      expect(found).to eq(comment2)
     end
 
-    it 'creates or updates pr comments based on existing marker' do
+    it { is_expected.to eq(comment2) }
+  end
+
+  describe '#post_or_update_pr_comment' do
+    subject(:post_comment) { report.send(:post_or_update_pr_comment, comment_body) }
+
+    let(:comment_body) { 'body' }
+    let(:client) { instance_double(Octokit::Client) }
+
+    before do
       ENV['POST_COMMENT'] = 'true'
       ENV['GITHUB_REPOSITORY'] = 'org/repo'
-
-      existing = double('existing_comment', id: 5)
-      client = instance_double(Octokit::Client)
       allow(report).to receive(:github_client).and_return(client)
-      allow(report).to receive(:current_pr_number).and_return(10)
-
-      allow(report).to receive(:find_existing_comment).and_return(existing)
-      allow(client).to receive(:update_comment)
-      report.send(:post_or_update_pr_comment, 'body')
-      expect(client).to have_received(:update_comment).with('org/repo', 5, 'body')
-
-      allow(report).to receive(:find_existing_comment).and_return(nil)
-      allow(client).to receive(:add_comment)
-      report.send(:post_or_update_pr_comment, 'body')
-      expect(client).to have_received(:add_comment).with('org/repo', 10, 'body')
     end
 
-    it 'skips pr comment posting when disabled or outside pr context' do
-      ENV['POST_COMMENT'] = 'false'
-      expect { report.send(:post_or_update_pr_comment, 'x') }.not_to raise_error
+    context 'when an existing sticky comment is found' do
+      let(:existing_comment) { double('existing_comment', id: 5) }
 
-      report.instance_variable_set(:@post_comment_enabled, nil)
-      ENV['POST_COMMENT'] = 'true'
-      allow(report).to receive(:current_pr_number).and_return(nil)
-      expect { report.send(:post_or_update_pr_comment, 'x') }.not_to raise_error
-    end
+      before do
+        allow(report).to receive(:current_pr_number).and_return(10)
+        allow(report).to receive(:find_existing_comment).and_return(existing_comment)
+        allow(client).to receive(:update_comment)
+      end
 
-    it 'returns empty string when changed_files is nil for build_changed_files_table' do
-      expect(report.send(:build_changed_files_table, nil)).to eq('')
-    end
+      it 'updates the existing comment' do
+        post_comment
 
-    it 'builds changed files table without baseline when no files have baseline or delta' do
-      # All new files without baseline data
-      new_files = [
-        { 'path' => 'new_file_1.rb', 'current' => 85.0, 'uncovered_lines' => [5, 6] },
-        { 'path' => 'new_file_2.rb', 'current' => 92.3, 'uncovered_lines' => [] }
-      ]
-
-      result = report.send(:build_changed_files_table, new_files)
-      expect(result).to include('new_file_1.rb')
-      expect(result).to include('85.0%')
-      expect(result).not_to include('| Δ |')
-    end
-
-    it 'returns empty string when groups are empty for build_groups_table' do
-      expect(report.send(:build_groups_table, [])).to eq('')
-    end
-
-    it 'groups single line correctly in group_consecutive' do
-      grouped = report.send(:group_consecutive, [5])
-      expect(grouped).to eq([[5]])
-    end
-
-    it 'creates empty annotations list from empty uncovered lines' do
-      annotations = report.send(:ranges_to_annotations, 'a.rb', [])
-      expect(annotations).to eq([])
-    end
-
-    it 'returns empty run_url_link when run_url is nil' do
-      allow(report).to receive(:run_url).and_return(nil)
-      expect(report.send(:run_url_link)).to eq('')
-
-      allow(report).to receive(:run_url).and_return('')
-      expect(report.send(:run_url_link)).to eq('')
-    end
-
-    it 'determines conclusion based on coverage delta being negative' do
-      ENV['MIN_COVERAGE'] = '50'
-
-      # Coverage meets threshold but delta is negative
-      neutral = report.send(:determine_conclusion, { 'total_coverage' => 80.0 },
-                            { 'overall' => { 'delta' => -5.2 } })
-      expect(neutral).to eq('neutral')
-    end
-
-    it 'loads coverage and comparison files' do
-      Dir.mktmpdir do |dir|
-        ENV['COVERAGE_PATH'] = dir
-        File.write(File.join(dir, 'coverage_result.json'), JSON.generate({ total_coverage: 1.0 }))
-        File.write(File.join(dir, 'comparison.json'), JSON.generate({ overall: { delta: 0.0 } }))
-
-        expect(report.send(:load_coverage_result)).to include('total_coverage' => 1.0)
-        expect(report.send(:load_comparison)).to include('overall' => { 'delta' => 0.0 })
+        expect(client).to have_received(:update_comment).with('org/repo', 5, 'body')
       end
     end
 
-    it 'returns nil when comparison json is missing and aborts when coverage json is missing' do
-      Dir.mktmpdir do |dir|
-        ENV['COVERAGE_PATH'] = dir
-        expect(report.send(:load_comparison)).to be_nil
-        expect { report.send(:load_coverage_result) }.to raise_error(SystemExit)
+    context 'when no sticky comment is found' do
+      before do
+        allow(report).to receive(:current_pr_number).and_return(10)
+        allow(report).to receive(:find_existing_comment).and_return(nil)
+        allow(client).to receive(:add_comment)
+      end
+
+      it 'creates a new comment' do
+        post_comment
+
+        expect(client).to have_received(:add_comment).with('org/repo', 10, 'body')
       end
     end
 
-    it 'runs full report orchestration' do
-      coverage_result = { 'total_coverage' => 50.0, 'groups' => [], 'files' => [] }
-      comparison = nil
+    context 'when comment posting is disabled' do
+      before do
+        ENV['POST_COMMENT'] = 'false'
+        report.instance_variable_set(:@post_comment_enabled, nil)
+      end
+
+      it 'does not raise an error' do
+        expect { post_comment }.not_to raise_error
+      end
+    end
+
+    context 'when there is no pull request number' do
+      before do
+        report.instance_variable_set(:@post_comment_enabled, nil)
+        allow(report).to receive(:current_pr_number).and_return(nil)
+      end
+
+      it 'does not raise an error' do
+        expect { post_comment }.not_to raise_error
+      end
+    end
+  end
+
+  describe '#run_url_link' do
+    subject(:result) { report.send(:run_url_link) }
+
+    context 'when run_url is nil' do
+      before do
+        allow(report).to receive(:run_url).and_return(nil)
+      end
+
+      it { is_expected.to be_nil }
+    end
+
+    context 'when run_url is empty' do
+      before do
+        allow(report).to receive(:run_url).and_return('')
+      end
+
+      it { is_expected.to be_nil }
+    end
+  end
+
+  describe '#load_coverage_result' do
+    subject(:result) { report.send(:load_coverage_result) }
+
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @coverage_dir = dir
+        ENV['COVERAGE_PATH'] = dir
+        example.run
+      end
+    end
+
+    context 'when the coverage result file exists' do
+      before do
+        File.write(File.join(@coverage_dir, 'coverage_result.json'), JSON.generate({ total_coverage: 1.0 }))
+      end
+
+      it { is_expected.to eq('total_coverage' => 1.0) }
+    end
+
+    context 'when the coverage result file is missing' do
+      it 'aborts the process' do
+        expect { result }.to raise_error(SystemExit)
+      end
+    end
+  end
+
+  describe '#load_comparison' do
+    subject(:result) { report.send(:load_comparison) }
+
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @coverage_dir = dir
+        ENV['COVERAGE_PATH'] = dir
+        example.run
+      end
+    end
+
+    context 'when the comparison file exists' do
+      before do
+        File.write(File.join(@coverage_dir, 'comparison.json'), JSON.generate({ overall: { delta: 0.0 } }))
+      end
+
+      it { is_expected.to eq('overall' => { 'delta' => 0.0 }) }
+    end
+
+    context 'when the comparison file is missing' do
+      it { is_expected.to be_nil }
+    end
+  end
+
+  describe '#run' do
+    subject(:run_report) { report.run }
+
+    let(:coverage_result) { { 'total_coverage' => 50.0, 'groups' => [], 'files' => [] } }
+    let(:comparison) { nil }
+
+    before do
       allow(report).to receive(:load_coverage_result).and_return(coverage_result)
       allow(report).to receive(:load_comparison).and_return(comparison)
       allow(report).to receive(:build_annotations).and_return([])
@@ -474,10 +931,18 @@ RSpec.describe SimpleCovDelta::Report do
       allow(report).to receive(:build_pr_comment).and_return('comment')
       allow(report).to receive(:post_or_update_pr_comment)
 
-      report.run
+      run_report
+    end
 
+    it 'creates the check run' do
       expect(report).to have_received(:create_check_run)
+    end
+
+    it 'writes the job summary' do
       expect(report).to have_received(:write_job_summary).with('summary')
+    end
+
+    it 'posts or updates the PR comment' do
       expect(report).to have_received(:post_or_update_pr_comment).with('comment')
     end
   end

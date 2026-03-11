@@ -109,7 +109,7 @@ module SimpleCovDelta
     # @return [String] Markdown table or empty string if no groups
     #
     def build_groups_table(groups)
-      return '' if groups.nil? || groups.empty?
+      return if groups.nil? || groups.empty?
 
       has_baseline = groups.any? { |g| g['baseline'] || g['delta'] }
       header = groups_table_header(has_baseline)
@@ -129,11 +129,13 @@ module SimpleCovDelta
     def build_pr_comment(coverage_result, comparison)
       overall_pct = format('%.1f%%', coverage_result['total_coverage'])
 
-      "#{COMMENT_MARKER}\n" \
-      "## 📊 Coverage Report\n\n" \
-      "#{overall_header(overall_pct, comparison)}" \
-      "#{comparison_sections(comparison, coverage_result, include_all_changed: false)}" \
-      "#{run_url_link}"
+      sections = [
+        '## 📊 Coverage Report',
+        overall_header(overall_pct, comparison),
+        comparison_sections(comparison, coverage_result, include_all_changed: false),
+        run_url_link
+      ]
+      "#{COMMENT_MARKER}\n#{sections.compact.join("\n\n")}\n"
     end
 
     # Builds markdown for GitHub Job Summary with full coverage report.
@@ -147,9 +149,11 @@ module SimpleCovDelta
     def build_job_summary(coverage_result, comparison)
       overall_pct = format('%.1f%%', coverage_result['total_coverage'])
 
-      +"## 📊 Coverage Report — Full Details\n\n" \
-      "#{overall_header(overall_pct, comparison)}" \
-      "#{comparison_sections(comparison, coverage_result, include_all_changed: true)}"
+      # binding.irb
+
+      ['## 📊 Coverage Report — Full Details',
+       overall_header(overall_pct, comparison),
+       comparison_sections(comparison, coverage_result, include_all_changed: true)].compact.join("\n\n")
     end
 
     private
@@ -271,9 +275,9 @@ module SimpleCovDelta
     def overall_header(overall_pct, comparison)
       if comparison
         delta_str = delta_indicator(comparison['overall']['delta'])
-        "**Overall: #{overall_pct}** (#{delta_str} vs baseline)\n\n"
+        "**Overall: #{overall_pct}** (#{delta_str} vs baseline)"
       else
-        "**Overall: #{overall_pct}**\n\n"
+        "**Overall: #{overall_pct}**"
       end
     end
 
@@ -287,9 +291,10 @@ module SimpleCovDelta
     def comparison_sections(comparison, coverage_result, include_all_changed:)
       return no_comparison_sections(coverage_result, include_all_files: include_all_changed) unless comparison
 
-      "#{groups_section(comparison['groups'])}" \
-      "#{changed_files_section(comparison['changed_files'])}" \
-      "#{all_changed_section(comparison['all_changed_coverage_files']) if include_all_changed}"
+      sections = [groups_section(comparison['groups']),
+                  changed_files_section(comparison['changed_files'])]
+      sections << all_changed_section(comparison['all_changed_coverage_files']) if include_all_changed
+      sections.compact.join("\n\n")
     end
 
     # Builds 'By Group' section with group coverage table.
@@ -298,9 +303,9 @@ module SimpleCovDelta
     # @return [String] Markdown section or empty string if no groups
     #
     def groups_section(groups)
-      return '' if groups.nil? || groups.empty?
+      return if groups.nil? || groups.empty?
 
-      "### By Group\n\n#{build_groups_table(groups)}\n\n"
+      "### By Group\n\n#{build_groups_table(groups)}"
     end
 
     # Builds 'Changed Files' section with table of PR-changed files.
@@ -309,9 +314,9 @@ module SimpleCovDelta
     # @return [String] Markdown section or empty string if no changed files
     #
     def changed_files_section(changed_files)
-      return '' if changed_files.nil? || changed_files.empty?
+      return if changed_files.nil? || changed_files.empty?
 
-      "### Changed Files\n\n#{build_changed_files_table(changed_files)}\n\n"
+      "### Changed Files\n\n#{build_changed_files_table(changed_files)}"
     end
 
     # Builds 'All Files with Coverage Changes' section for files not in PR changes.
@@ -320,11 +325,11 @@ module SimpleCovDelta
     # @return [String] Markdown section or empty string if no affected files
     #
     def all_changed_section(all_changed)
-      return '' if all_changed.nil? || all_changed.empty?
+      return if all_changed.nil? || all_changed.empty?
 
-      "### All Files with Coverage Changes\n\n" \
-      "Files not touched in this PR but whose coverage was affected:\n\n" \
-      "#{build_all_changed_table(all_changed)}\n\n"
+      ['### All Files with Coverage Changes',
+       'Files not touched in this PR but whose coverage was affected:',
+       build_all_changed_table(all_changed)].join("\n\n")
     end
 
     # Builds report sections when no baseline comparison available.
@@ -336,21 +341,23 @@ module SimpleCovDelta
     # @return [String] Markdown section(s)
     #
     def no_comparison_sections(coverage_result, include_all_files:)
-      md = +''
+      md = []
       groups = coverage_result['groups']
       if groups && !groups.empty?
         simple_groups = groups.map { |g| { 'name' => g['name'], 'current' => g['coverage'] } }
-        md << "### By Group\n\n#{build_groups_table(simple_groups)}\n\n"
+        md << "### By Group\n\n#{build_groups_table(simple_groups)}"
       end
-      return md unless include_all_files
+      if include_all_files
+        files = coverage_result['files']
+        md << "### All Covered Files\n\n#{build_all_files_table(files)}" if files && !files.empty?
+      end
 
-      files = coverage_result['files']
-      md << "### All Covered Files\n\n#{build_all_files_table(files)}\n\n" if files && !files.empty?
-      md
+      result = md.join("\n\n")
+      result.empty? ? nil : result
     end
 
     def run_url_link
-      return '' if run_url.nil? || run_url.empty?
+      return if run_url.nil? || run_url.empty?
 
       "📋 [View report & artifacts](#{run_url})"
     end
@@ -390,7 +397,7 @@ module SimpleCovDelta
     # @return [String] Markdown table or empty string if no files
     #
     def build_changed_files_table(changed_files)
-      return '' if changed_files.nil? || changed_files.empty?
+      return if changed_files.nil? || changed_files.empty?
 
       has_baseline = changed_files.any? { |f| f['baseline'] || f['delta'] }
       header = changed_files_table_header(has_baseline)
@@ -405,9 +412,9 @@ module SimpleCovDelta
     #
     def changed_files_table_header(has_baseline)
       if has_baseline
-        "| File | Coverage | Δ | Uncovered Lines |\n|------|----------|---|------------------|\n"
+        "| File | Coverage | Δ | Uncovered Lines |\n|------|----------|---|-----------------|\n"
       else
-        "| File | Coverage | Uncovered Lines |\n|------|----------|------------------|\n"
+        "| File | Coverage | Uncovered Lines |\n|------|----------|-----------------|\n"
       end
     end
 
@@ -433,7 +440,7 @@ module SimpleCovDelta
     # @return [String] Markdown table or empty string if no files
     #
     def build_all_changed_table(all_changed)
-      return '' if all_changed.nil? || all_changed.empty?
+      return if all_changed.nil? || all_changed.empty?
 
       header = "| File | Coverage | Δ |\n|------|----------|---|\n"
       rows = all_changed.map do |f|
@@ -448,9 +455,9 @@ module SimpleCovDelta
     # @return [String] Markdown table or empty string if no files
     #
     def build_all_files_table(files)
-      return '' if files.nil? || files.empty?
+      return if files.nil? || files.empty?
 
-      header = "| File | Coverage | Covered / Total | Uncovered Lines |\n|------|----------|-----------------|------------------|\n"
+      header = "| File | Coverage | Covered / Total | Uncovered Lines |\n|------|----------|-----------------|-----------------|\n"
       rows = files.map { |f| all_files_table_row(f) }
       header + rows.join("\n")
     end
