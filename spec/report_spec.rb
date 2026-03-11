@@ -240,6 +240,31 @@ RSpec.describe SimpleCovDelta::Report do
         MARKDOWN
       end
     end
+
+    context 'when comparison is present but has no group or file deltas' do
+      let(:comparison) do
+        { 'overall' => { 'current' => 54.2, 'baseline' => 52.9, 'delta' => 1.3 },
+          'groups' => [],
+          'changed_files' => [] }
+      end
+
+      it do
+        is_expected.to eq(<<~MARKDOWN)
+          <!-- coverage-report-action -->
+          ## 📊 Coverage Report
+
+          **Overall: 54.2%** (+1.3% ✅ vs baseline)
+
+          ### By Group
+
+          | Group | Coverage |
+          |-------|----------|
+          | Models | 78.1% |
+
+          📋 [View report & artifacts](https://github.com//actions/runs/)
+        MARKDOWN
+      end
+    end
   end
 
   describe '#build_job_summary' do

@@ -291,10 +291,30 @@ module SimpleCovDelta
     def comparison_sections(comparison, coverage_result, include_all_changed:)
       return no_comparison_sections(coverage_result, include_all_files: include_all_changed) unless comparison
 
-      sections = [groups_section(comparison['groups']),
+      sections = [groups_section(comparison_groups(comparison, coverage_result)),
                   changed_files_section(comparison['changed_files'])]
       sections << all_changed_section(comparison['all_changed_coverage_files']) if include_all_changed
       sections.compact.join("\n\n")
+    end
+
+    # Selects group data for comparison-backed reports.
+    #
+    # Prefers comparison groups with baseline deltas, but falls back to the
+    # current coverage groups so PR comments still show group coverage when no
+    # changed files produced comparison rows.
+    #
+    # @param comparison [Hash] Comparison data
+    # @param coverage_result [Hash] Coverage result data
+    # @return [Array<Hash>, nil] Group rows suitable for build_groups_table
+    #
+    def comparison_groups(comparison, coverage_result)
+      comparison_groups = comparison['groups']
+      return comparison_groups unless comparison_groups.nil? || comparison_groups.empty?
+
+      coverage_groups = coverage_result['groups']
+      return if coverage_groups.nil? || coverage_groups.empty?
+
+      coverage_groups.map { |group| { 'name' => group['name'], 'current' => group['coverage'] } }
     end
 
     # Builds 'By Group' section with group coverage table.
