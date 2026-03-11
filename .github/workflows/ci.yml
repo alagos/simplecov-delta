@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -23,7 +23,7 @@ jobs:
         run: bundle exec rspec --format documentation
 
       - name: Upload coverage result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: success() || failure()
         with:
           name: coverage-rspec
@@ -44,16 +44,21 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download coverage results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: "coverage-*"
           path: coverage-results/
 
+      - name: Debug downloaded coverage files
+        run: |
+          echo "Listing downloaded coverage files"
+          find coverage-results -type f -name '.resultset.json' -print || true
+
       - name: Restore coverage baseline
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: coverage-baseline/.resultset.json
           key: ${{ format('coverage-baseline-{0}-', github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name) }}
@@ -73,12 +78,14 @@ jobs:
         uses: ./
         with:
           resultset-paths: |
+            coverage-results/.resultset.json
             coverage-results/*/.resultset.json
+            coverage-results/**/.resultset.json
           baseline-path: coverage-baseline/.resultset.json
           min-coverage: 80
 
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-html-report
           path: coverage/
@@ -92,7 +99,7 @@ jobs:
 
       - name: Cache coverage baseline
         if: github.event_name == 'push'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: coverage-baseline/.resultset.json
           key: coverage-baseline-${{ github.ref_name }}-${{ github.sha }}
@@ -102,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate action.yml
         run: |
@@ -124,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build Docker image
         run: docker build -t simplecov-delta .
