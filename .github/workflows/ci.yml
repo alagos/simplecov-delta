@@ -55,10 +55,19 @@ jobs:
       - name: Restore coverage baseline
         uses: actions/cache/restore@v4
         with:
-          path: coverage-baseline/
+          path: coverage-baseline/.resultset.json
           key: ${{ format('coverage-baseline-{0}-', github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name) }}
           restore-keys: |
             coverage-baseline-${{ github.event.repository.default_branch }}-
+
+      - name: Check restored baseline file
+        run: |
+          if [ -f coverage-baseline/.resultset.json ]; then
+            echo "Baseline found at coverage-baseline/.resultset.json"
+            ls -lh coverage-baseline/.resultset.json
+          else
+            echo "Baseline not found at coverage-baseline/.resultset.json"
+          fi
 
       - name: Generate coverage report using simplecov-delta
         uses: ./
@@ -77,9 +86,15 @@ jobs:
 
       - name: Save coverage baseline
         if: github.event_name == 'push'
+        run: |
+          mkdir -p coverage-baseline
+          cp coverage/.resultset.json coverage-baseline/.resultset.json
+
+      - name: Cache coverage baseline
+        if: github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
-          path: coverage/.resultset.json
+          path: coverage-baseline/.resultset.json
           key: coverage-baseline-${{ github.ref_name }}-${{ github.sha }}
 
   lint:
