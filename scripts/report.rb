@@ -149,8 +149,6 @@ module SimpleCovDelta
     def build_job_summary(coverage_result, comparison)
       overall_pct = format('%.1f%%', coverage_result['total_coverage'])
 
-      # binding.irb
-
       ['## 📊 Coverage Report — Full Details',
        overall_header(overall_pct, comparison),
        comparison_sections(comparison, coverage_result, include_all_changed: true)].compact.join("\n\n")
@@ -294,6 +292,13 @@ module SimpleCovDelta
       sections = [groups_section(comparison_groups(comparison, coverage_result)),
                   changed_files_section(comparison['changed_files'])]
       sections << all_changed_section(comparison['all_changed_coverage_files']) if include_all_changed
+
+      # In full job summary mode, keep detailed output even when comparison has
+      # no per-group/file deltas (e.g., unchanged coverage between baseline/current).
+      if include_all_changed && sections.compact.empty?
+        sections << all_files_section(coverage_result['files'])
+      end
+
       sections.compact.join("\n\n")
     end
 
@@ -352,6 +357,17 @@ module SimpleCovDelta
        build_all_changed_table(all_changed)].join("\n\n")
     end
 
+    # Builds 'All Covered Files' section with the complete file table.
+    #
+    # @param files [Array<Hash>, nil] Full coverage file list
+    # @return [String] Markdown section or empty string if no files
+    #
+    def all_files_section(files)
+      return if files.nil? || files.empty?
+
+      "### All Covered Files\n\n#{build_all_files_table(files)}"
+    end
+
     # Builds report sections when no baseline comparison available.
     #
     # Shows group statistics and optionally all files.
@@ -368,8 +384,7 @@ module SimpleCovDelta
         md << "### By Group\n\n#{build_groups_table(simple_groups)}"
       end
       if include_all_files
-        files = coverage_result['files']
-        md << "### All Covered Files\n\n#{build_all_files_table(files)}" if files && !files.empty?
+        md << all_files_section(coverage_result['files'])
       end
 
       result = md.join("\n\n")
@@ -477,8 +492,19 @@ module SimpleCovDelta
     def build_all_files_table(files)
       return if files.nil? || files.empty?
 
-      header = "| File | Coverage | Covered / Total | Uncovered Lines |\n|------|----------|-----------------|-----------------|\n"
-      rows = files.map { |f| all_files_table_row(f) }
+      has_baseline = files.any? do |f|
+        !((f['baseline'] || f[:baseline]).nil? && (f['delta'] || f[:delta]).nil?)
+      end
+
+      header = if has_baseline
+                 "| File | Coverage | Δ | Covered / Total | Uncovered Lines |\n" \
+                 "|------|----------|---|-----------------|-----------------|\n"
+               else
+                 "| File | Coverage | Covered / Total | Uncovered Lines |\n" \
+                 "|------|----------|-----------------|-----------------|\n"
+               end
+
+      rows = files.map { |f| all_files_table_row(f, has_baseline) }
       header + rows.join("\n")
     end
 
@@ -487,13 +513,20 @@ module SimpleCovDelta
     # @param file [Hash] File data with path, coverage, covered_lines, total_lines, uncovered_lines
     # @return [String] Markdown table row
     #
-    def all_files_table_row(file)
+    def all_files_table_row(file, has_baseline)
       uncovered = format_uncovered_lines(file['uncovered_lines'] || file[:uncovered_lines])
       coverage = file['coverage'] || file[:coverage]
       covered_lines = file['covered_lines'] || file[:covered_lines]
       total_lines = file['total_lines'] || file[:total_lines]
       path = file['path'] || file[:path]
-      "| #{path} | #{format('%.1f%%', coverage)} | #{covered_lines} / #{total_lines} | #{uncovered} |"
+      if has_baseline
+        baseline = file['baseline'] || file[:baseline]
+        delta = file['delta'] || file[:delta]
+        delta_str = baseline.nil? && delta.nil? ? 'new' : delta_indicator(delta)
+        "| #{path} | #{format('%.1f%%', coverage)} | #{delta_str} | #{covered_lines} / #{total_lines} | #{uncovered} |"
+      else
+        "| #{path} | #{format('%.1f%%', coverage)} | #{covered_lines} / #{total_lines} | #{uncovered} |"
+      end
     end
 
     # --- Consecutive line grouping ---

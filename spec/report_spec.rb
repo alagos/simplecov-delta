@@ -332,6 +332,31 @@ RSpec.describe SimpleCovDelta::Report do
         MARKDOWN
       end
     end
+
+    context 'when comparison is present but has no detailed sections' do
+      let(:comparison) do
+        {
+          'overall' => { 'current' => 54.2, 'baseline' => 54.2, 'delta' => 0.0 },
+          'groups' => [],
+          'changed_files' => [],
+          'all_changed_coverage_files' => []
+        }
+      end
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          ## 📊 Coverage Report — Full Details
+
+          **Overall: 54.2%** (+0.0% vs baseline)
+
+          ### All Covered Files
+
+          | File | Coverage | Covered / Total | Uncovered Lines |
+          |------|----------|-----------------|-----------------|
+          | app/models/user.rb | 89.2% | 100 / 112 | 12, 34-35 |
+        MARKDOWN
+      end
+    end
   end
 
   describe '#no_comparison_sections' do
@@ -476,6 +501,21 @@ RSpec.describe SimpleCovDelta::Report do
           | File | Coverage | Covered / Total | Uncovered Lines |
           |------|----------|-----------------|-----------------|
           | a.rb | 40.0% | 2 / 5 | 3-4 |
+        MARKDOWN
+      end
+    end
+
+    context 'when files include baseline data' do
+      let(:files) do
+        [{ 'path' => 'a.rb', 'coverage' => 40.0, 'baseline' => 41.0, 'delta' => -1.0,
+           'covered_lines' => 2, 'total_lines' => 5, 'uncovered_lines' => [3, 4] }]
+      end
+
+      it do
+        is_expected.to eq(<<~MARKDOWN.chomp)
+          | File | Coverage | Δ | Covered / Total | Uncovered Lines |
+          |------|----------|---|-----------------|-----------------|
+          | a.rb | 40.0% | -1.0% ⚠️ | 2 / 5 | 3-4 |
         MARKDOWN
       end
     end
