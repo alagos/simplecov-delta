@@ -31,19 +31,19 @@ RSpec.describe SimpleCovDelta::Report do
     context 'when delta is positive' do
       let(:delta) { 1.3 }
 
-      it { is_expected.to eq('+1.3% ✅') }
+      it { is_expected.to eq('+1.30% ✅') }
     end
 
     context 'when delta is negative' do
       let(:delta) { -2.5 }
 
-      it { is_expected.to eq('-2.5% ⚠️') }
+      it { is_expected.to eq('-2.50% ⚠️') }
     end
 
     context 'when delta is zero' do
       let(:delta) { 0.0 }
 
-      it { is_expected.to eq('+0.0%') }
+      it { is_expected.to eq('+0.00%') }
     end
   end
 
@@ -159,8 +159,8 @@ RSpec.describe SimpleCovDelta::Report do
         is_expected.to eq(<<~MARKDOWN.chomp)
           | Group | Coverage | Δ |
           |-------|----------|---|
-          | Models | 78.1% | +0.3% ✅ |
-          | Services | 49.2% | -1.1% ⚠️ |
+          | Models | 78.1% | +0.30% ✅ |
+          | Services | 49.2% | -1.10% ⚠️ |
         MARKDOWN
       end
     end
@@ -226,19 +226,19 @@ RSpec.describe SimpleCovDelta::Report do
           <!-- coverage-report-action -->
           ## 📊 Coverage Report
 
-          **Overall: 54.2%** (+1.3% ✅ vs baseline)
+          **Overall: 54.2%** (+1.30% ✅ vs baseline)
 
           ### By Group
 
           | Group | Coverage | Δ |
           |-------|----------|---|
-          | Models | 78.1% | +0.3% ✅ |
+          | Models | 78.1% | +0.30% ✅ |
 
           ### Changed Files
 
           | File | Coverage | Δ | Uncovered Lines |
           |------|----------|---|-----------------|
-          | app/models/user.rb | 89.2% | +3.1% ✅ | — |
+          | app/models/user.rb | 89.2% | +3.10% ✅ | — |
 
           📋 [View report & artifacts](https://github.com//actions/runs/)
         MARKDOWN
@@ -257,7 +257,7 @@ RSpec.describe SimpleCovDelta::Report do
           <!-- coverage-report-action -->
           ## 📊 Coverage Report
 
-          **Overall: 54.2%** (+1.3% ✅ vs baseline)
+          **Overall: 54.2%** (+1.30% ✅ vs baseline)
 
           ### By Group
 
@@ -302,7 +302,7 @@ RSpec.describe SimpleCovDelta::Report do
         is_expected.to eq(<<~MARKDOWN.chomp)
           ## 📊 Coverage Report — Full Details
 
-          **Overall: 54.2%** (+1.3% ✅ vs baseline)
+          **Overall: 54.2%** (+1.30% ✅ vs baseline)
 
           ### All Files with Coverage Changes
 
@@ -310,7 +310,7 @@ RSpec.describe SimpleCovDelta::Report do
 
           | File | Coverage | Δ |
           |------|----------|---|
-          | app/helpers/helper.rb | 45.0% | -3.0% ⚠️ |
+          | app/helpers/helper.rb | 45.0% | -3.00% ⚠️ |
         MARKDOWN
       end
     end
@@ -347,7 +347,7 @@ RSpec.describe SimpleCovDelta::Report do
         is_expected.to eq(<<~MARKDOWN.chomp)
           ## 📊 Coverage Report — Full Details
 
-          **Overall: 54.2%** (+0.0% vs baseline)
+          **Overall: 54.2%** (+0.00% vs baseline)
 
           ### All Covered Files
 
@@ -423,7 +423,7 @@ RSpec.describe SimpleCovDelta::Report do
         is_expected.to eq(<<~MARKDOWN.chomp)
           | File | Coverage | Δ | Uncovered Lines |
           |------|----------|---|-----------------|
-          | a.rb | 50.0% | +10.0% ✅ | 2 |
+          | a.rb | 50.0% | +10.00% ✅ | 2 |
         MARKDOWN
       end
     end
@@ -475,7 +475,7 @@ RSpec.describe SimpleCovDelta::Report do
         is_expected.to eq(<<~MARKDOWN.chomp)
           | File | Coverage | Δ |
           |------|----------|---|
-          | a.rb | 40.0% | -1.0% ⚠️ |
+          | a.rb | 40.0% | -1.00% ⚠️ |
         MARKDOWN
       end
     end
@@ -515,7 +515,7 @@ RSpec.describe SimpleCovDelta::Report do
         is_expected.to eq(<<~MARKDOWN.chomp)
           | File | Coverage | Δ | Covered / Total | Uncovered Lines |
           |------|----------|---|-----------------|-----------------|
-          | a.rb | 40.0% | -1.0% ⚠️ | 2 / 5 | 3-4 |
+          | a.rb | 40.0% | -1.00% ⚠️ | 2 / 5 | 3-4 |
         MARKDOWN
       end
     end
@@ -645,7 +645,7 @@ RSpec.describe SimpleCovDelta::Report do
     context 'when comparison data is present' do
       let(:comparison) { { 'overall' => { 'delta' => 1.25 } } }
 
-      it { is_expected.to eq('Coverage: 80.1% (+1.2% vs baseline)') }
+      it { is_expected.to eq('Coverage: 80.1% (+1.25% vs baseline)') }
     end
 
     context 'when comparison data is absent' do

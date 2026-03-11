@@ -63,7 +63,7 @@ module SimpleCovDelta
     def delta_indicator(delta)
       return '—' if delta.nil?
 
-      formatted = format('%+.1f%%', delta)
+      formatted = format('%+.2f%%', delta)
       return "#{formatted} ✅" if delta.positive?
       return "#{formatted} ⚠️" if delta.negative?
 
@@ -295,9 +295,7 @@ module SimpleCovDelta
 
       # In full job summary mode, keep detailed output even when comparison has
       # no per-group/file deltas (e.g., unchanged coverage between baseline/current).
-      if include_all_changed && sections.compact.empty?
-        sections << all_files_section(coverage_result['files'])
-      end
+      sections << all_files_section(coverage_result['files']) if include_all_changed && sections.compact.empty?
 
       sections.compact.join("\n\n")
     end
@@ -383,9 +381,7 @@ module SimpleCovDelta
         simple_groups = groups.map { |g| { 'name' => g['name'], 'current' => g['coverage'] } }
         md << "### By Group\n\n#{build_groups_table(simple_groups)}"
       end
-      if include_all_files
-        md << all_files_section(coverage_result['files'])
-      end
+      md << all_files_section(coverage_result['files']) if include_all_files
 
       result = md.join("\n\n")
       result.empty? ? nil : result
@@ -650,7 +646,7 @@ module SimpleCovDelta
     def check_run_summary(coverage_result, comparison)
       overall_pct = format('%.1f%%', coverage_result['total_coverage'])
       if comparison
-        delta_str = format('%+.1f%%', comparison['overall']['delta'])
+        delta_str = format('%+.2f%%', comparison['overall']['delta'])
         "Coverage: #{overall_pct} (#{delta_str} vs baseline)"
       else
         "Coverage: #{overall_pct}"
