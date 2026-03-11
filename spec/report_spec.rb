@@ -9,6 +9,10 @@ RSpec.describe SimpleCovDelta::Report do
   around do |example|
     original = ENV.to_h
     begin
+      # Keep URL assertions deterministic regardless of CI-provided GitHub env vars.
+      ENV.delete('GITHUB_REPOSITORY')
+      ENV.delete('GITHUB_RUN_ID')
+      ENV.delete('GITHUB_SERVER_URL')
       example.run
     ensure
       ENV.replace(original)
